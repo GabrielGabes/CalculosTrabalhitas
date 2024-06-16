@@ -1,0 +1,142 @@
+```{r}
+df = read_excel("dados.xlsx")
+df$index = 1:nrow(df)
+
+df$salario_total = NULL
+df = df %>% filter(salario <= 10000)
+df = df %>% filter(salario >= 2000)
+df$salario %>% summary()
+
+df$descontos_perc = (df$total_descontos / df$salario)*100
+df$descontos_perc %>% summary()
+
+df$deducao_IRRF = NULL
+df$percent_IRRF = NULL
+df$dif_IRRF_perc = (df$IRRF / df$salario)*100
+df$dif_INSS_perc = (df$INSS / df$salario)*100
+
+df$salario_anual = df$salario*12
+df$salario_liquido_anual = df$salario_liquido*12
+df$total_descontos_anual = df$total_descontos*12
+
+sequencia = seq(1, nrow(df), by = 5)
+lins = df[sequencia,]
+df = lins
+
+df[,c('salario','salario_anual','salario_liquido','salario_liquido_anual','total_descontos','total_descontos_anual')]
+df
+```
+
+```{r}
+ggplot(data = df, aes(x = index)) +
+  geom_point(aes(y = salario, colour = "Salário Total"), size=2) +
+  geom_point(aes(y = salario_liquido, colour = "Salário Líquido"), size=2) +
+  geom_segment(aes(x = index, xend = index, y = salario_liquido, yend = salario, colour = "Diferença"),
+               linetype="dotted", size=1) +
+  #
+  labs(title = "Comparativo entre Salário Total e Salário Líquido", x = "Índice", y = "R$") +
+  scale_colour_manual("", breaks = c("Salário Total", "Salário Líquido"), values = c("blue", "tomato",'black')) +
+  theme_minimal() + theme(legend.position = "bottom") +
+  scale_y_continuous(limits = c(2000, 10000), 
+                     breaks=seq(from = 2000, to = 10000, by = 500)) +
+  xlim(0, 75)
+```
+```{r}
+ggplot(df, aes(x=salario, y=salario_liquido, size=descontos_perc, fill=descontos_perc)) +
+  geom_point(shape=131, color='black') + 
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_size(range= c(1,10)) +
+  scale_fill_gradient(low='#97D2FB', high='blue') +
+  labs(title='Relação do Salário Líquido', fill=NULL, size=NULL) +
+  theme_minimal() + theme(legend.position = "bottom") + 
+  scale_x_continuous(limits = c(2000, 10000), 
+                     breaks=seq(from = 2000, to = 10000, by = 500)) +
+  scale_y_continuous(limits = c(2000, 10000), 
+                     breaks=seq(from = 2000, to = 10000, by = 500))
+
+lm(salario_liquido~salario, df) %>% summary()
+cor.test(df$salario_liquido, df$salario)
+
+```
+
+
+```{r}
+print('-')
+colunas = c('INSS', 'dif_INSS_perc', 'IRRF', 'dif_IRRF_perc', 'total_descontos', 'salario_liquido', 'descontos_perc')
+
+for (coluna in colunas){
+  #print(coluna)
+  
+  df$labels = NA
+  for (linha in 1:nrow(df)){
+    sal = df$salario[linha]
+    valor = df[[coluna]][linha] %>% round(2)
+    df$labels[linha] = paste(sal,';',valor)
+  }
+  
+  pulo = (max(df[[coluna]]) - min(df[[coluna]])) / 9
+  
+  p = ggplot(df, aes(x=salario, y=!!sym(coluna), fill=!!sym(coluna) ) ) +
+  labs(y=coluna) +
+  geom_point(aes(size=!!sym(coluna)), shape=21, color='black') + 
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_size(range= c(1,10)) +
+  theme_classic() + theme(legend.position="none") +
+  scale_fill_gradient2(low= "white",mid='#97D2FB',high='blue') +
+  scale_x_continuous(limits = c(2000, 10000), 
+                     breaks=seq(from = 2000, to = 10000, by = 500)) +
+  scale_y_continuous(breaks=seq(from = min(df[[coluna]]), 
+                                to = max(df[[coluna]]), 
+                                by = (max(df[[coluna]]) - min(df[[coluna]]))/10) %>% round(2)) +
+  #geom_point(data=lins, aes(x=salario, y=!!sym(coluna)), size=10, shape=13) + 
+  geom_label(aes(label=labels, color=labels), size=3, nudge_y=pulo, fill='grey85')
+  
+  print(p)
+  ggsave(paste0('salario','_',coluna,".png"), height=10, width=20, units="cm", dpi= 600)
+}
+
+```
+
+```{r}
+df
+```
+
+```{r}
+print('-')
+colunas = c('salario_liquido_anual','total_descontos_anual')
+
+for (coluna in colunas){
+  #print(coluna)
+  
+  df$labels = NA
+  for (linha in 1:nrow(df)){
+    sal0 = df$salario[linha]
+    sal = df$salario_anual[linha]
+    valor = df[[coluna]][linha] %>% round(2)
+    df$labels[linha] = paste(sal0,';',sal,';',valor)
+  }
+  
+  pulo = (max(df[[coluna]]) - min(df[[coluna]])) / 9
+  
+  p = ggplot(df, aes(x=salario_anual, y=!!sym(coluna), fill=!!sym(coluna) ) ) +
+  labs(y=coluna) +
+  geom_point(aes(size=!!sym(coluna)), shape=21, color='black') + 
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_size(range= c(1,10)) +
+  theme_classic() + theme(legend.position="none") +
+  scale_fill_gradient2(low= "white",mid='#97D2FB',high='blue') +
+  scale_x_continuous(breaks=seq(from = min(df[['salario_anual']]), 
+                                to = max(df[['salario_anual']]), 
+                                by = (max(df[['salario_anual']]) - min(df[['salario_anual']]))/10) %>% round(2)) +
+  scale_y_continuous(breaks=seq(from = min(df[[coluna]]), 
+                                to = max(df[[coluna]]), 
+                                by = (max(df[[coluna]]) - min(df[[coluna]]))/10) %>% round(2)) +
+  #geom_point(data=lins, aes(x=salario_anual, y=!!sym(coluna)), size=10, shape=13) + 
+  geom_label(aes(label=labels, color=labels), size=3, nudge_y=pulo, fill='grey85')
+  
+  print(p)
+  ggsave(paste0('salario_anual','_',coluna,".png"), height=10, width=20, units="cm", dpi= 600)
+}
+
+```
+
