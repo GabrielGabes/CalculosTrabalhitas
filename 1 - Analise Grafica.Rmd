@@ -1,58 +1,71 @@
-```{r}
+```{r Tratamentos Restantes}
 df = read_excel("dados.xlsx")
-df$index = 1:nrow(df)
 
-df$salario_total = NULL
-df = df %>% filter(salario <= 10000)
-df = df %>% filter(salario >= 2000)
-df$salario %>% summary()
+df$salario_bruto = NULL
 
 df$descontos_perc = (df$total_descontos / df$salario)*100
 df$descontos_perc %>% summary()
 
+# Excluindo colunas que não vão ser utilizadas
 df$deducao_IRRF = NULL
 df$percent_IRRF = NULL
+
 df$dif_IRRF_perc = (df$IRRF / df$salario)*100
 df$dif_INSS_perc = (df$INSS / df$salario)*100
 
+# Calculando faixas anuais
 df$salario_anual = df$salario*12
 df$salario_liquido_anual = df$salario_liquido*12
+
+df$IRRF_anual = df$IRRF*12
+df$INSS_anual = df$INSS*12
 df$total_descontos_anual = df$total_descontos*12
 
-sequencia = seq(1, nrow(df), by = 5)
-lins = df[sequencia,]
-df = lins
+# Aplicando filtro
+df = df %>% filter(salario %% 500 == 0) #  500 em 500
+df = df %>% filter(salario <= 10000) # apenas abaixo de 10k
 
-df[,c('salario','salario_anual','salario_liquido','salario_liquido_anual','total_descontos','total_descontos_anual')]
-df
+df$salario %>% summary()
+
+local_graficos = 'C:/Users/gabri/OneDrive/Documentos/Calculos Trabalhistas/graficos_analise/'
 ```
 
 ```{r}
+df$index = 1:nrow(df)
+
+df$labels = paste0(df$salario %>% round(0))
+df$labels = paste0(df$labels, '\n', df$salario_liquido %>% round(0))
+df$labels = paste0(df$labels, '\n', df$salario-df$salario_liquido %>% round(0))
+df$labels = paste0(df$labels, '(', (((df$salario-df$salario_liquido)/df$salario)*100) %>% round(0), '%', ')')
+
 ggplot(data = df, aes(x = index)) +
-  geom_point(aes(y = salario, colour = "Salário Total"), size=2) +
-  geom_point(aes(y = salario_liquido, colour = "Salário Líquido"), size=2) +
+  geom_line(aes(y = salario, colour = "Salário Total"), size=2) +
+  geom_line(aes(y = salario_liquido, colour = "Salário Líquido"), size=2) +
   geom_segment(aes(x = index, xend = index, y = salario_liquido, yend = salario, colour = "Diferença"),
                linetype="dotted", size=1) +
   #
   labs(title = "Comparativo entre Salário Total e Salário Líquido", x = "Índice", y = "R$") +
   scale_colour_manual("", breaks = c("Salário Total", "Salário Líquido"), values = c("blue", "tomato",'black')) +
   theme_minimal() + theme(legend.position = "bottom") +
-  scale_y_continuous(limits = c(2000, 10000), 
-                     breaks=seq(from = 2000, to = 10000, by = 500)) +
-  xlim(0, 75)
+  scale_x_continuous(limits = c(min(df$index), max(df$index)), breaks=seq(from = 0, to = max(df$index), by = 5)) +
+  scale_y_continuous(limits = c(min(df$salario), max(df$salario)+1500), breaks=seq(from = 0, to = max(df$salario)+1500, by = 500)) +
+  geom_label(aes(y=salario + 500, label=labels), colour='black', size=2.75, nudge_y=pulo, fill='#CDCFE3')
 ```
 ```{r}
-ggplot(df, aes(x=salario, y=salario_liquido, size=descontos_perc, fill=descontos_perc)) +
-  geom_point(shape=131, color='black') + 
-  geom_smooth(method = "lm", se = FALSE) +
-  scale_size(range= c(1,10)) +
-  scale_fill_gradient(low='#97D2FB', high='blue') +
-  labs(title='Relação do Salário Líquido', fill=NULL, size=NULL) +
+df$labels = paste0(df$salario %>% round(0))
+df$labels = paste0(df$labels, '\n', df$salario_liquido %>% round(0))
+
+ggplot(df, aes(x=salario, y=salario_liquido)) +
+  geom_point(shape=21, fill='grey70', color="black", size=5) +
+  geom_smooth(method = "lm", se = FALSE, size=1.3, color='red') +
+  labs(title='Relação de F(Salário Bruto) = Salário Líquido', fill=NULL, size=NULL,
+       x='Salário Bruto', y='Salário Liquido') +
   theme_minimal() + theme(legend.position = "bottom") + 
-  scale_x_continuous(limits = c(2000, 10000), 
-                     breaks=seq(from = 2000, to = 10000, by = 500)) +
-  scale_y_continuous(limits = c(2000, 10000), 
-                     breaks=seq(from = 2000, to = 10000, by = 500))
+  scale_x_continuous(limits = c(1500, 10000), 
+                     breaks=seq(from = 0, to = 10000, by = 500)) +
+  scale_y_continuous(limits = c(1500, 10000), 
+                     breaks=seq(from = 0, to = 10000, by = 500)) +
+  geom_label(aes(label=labels), colour='black', size=2.75, nudge_y=pulo, fill='#CDCFE3')
 
 lm(salario_liquido~salario, df) %>% summary()
 cor.test(df$salario_liquido, df$salario)
@@ -61,82 +74,196 @@ cor.test(df$salario_liquido, df$salario)
 
 
 ```{r}
+
 print('-')
-colunas = c('INSS', 'dif_INSS_perc', 'IRRF', 'dif_IRRF_perc', 'total_descontos', 'salario_liquido', 'descontos_perc')
+colunas = c('INSS', 'dif_INSS_perc', 'IRRF', 'dif_IRRF_perc', 'total_descontos', 'descontos_perc', 'salario_liquido')
+
+titulo_colunas = c('INSS', 'INSS (%)', 'IRRF', 'IRRF (%)', 'Descontos Totais', 'Descontos Totais(%)', 'Salário Liquido')
+count = 0
 
 for (coluna in colunas){
   #print(coluna)
   
-  df$labels = NA
-  for (linha in 1:nrow(df)){
-    sal = df$salario[linha]
-    valor = df[[coluna]][linha] %>% round(2)
-    df$labels[linha] = paste(sal,';',valor)
-  }
+  count = count + 1
+  titulo_eixo_y = titulo_colunas[count]
+  
+  df$labels = df[[coluna]] %>% round(0)# paste(df$salario, ';', df[[coluna]] %>% round(0))
   
   pulo = (max(df[[coluna]]) - min(df[[coluna]])) / 9
   
   p = ggplot(df, aes(x=salario, y=!!sym(coluna), fill=!!sym(coluna) ) ) +
-  labs(y=coluna) +
-  geom_point(aes(size=!!sym(coluna)), shape=21, color='black') + 
-  geom_smooth(method = "lm", se = FALSE) +
-  scale_size(range= c(1,10)) +
-  theme_classic() + theme(legend.position="none") +
-  scale_fill_gradient2(low= "white",mid='#97D2FB',high='blue') +
-  scale_x_continuous(limits = c(2000, 10000), 
-                     breaks=seq(from = 2000, to = 10000, by = 500)) +
-  scale_y_continuous(breaks=seq(from = min(df[[coluna]]), 
-                                to = max(df[[coluna]]), 
-                                by = (max(df[[coluna]]) - min(df[[coluna]]))/10) %>% round(2)) +
-  #geom_point(data=lins, aes(x=salario, y=!!sym(coluna)), size=10, shape=13) + 
-  geom_label(aes(label=labels, color=labels), size=3, nudge_y=pulo, fill='grey85')
-  
+    labs(y=titulo_eixo_y, x = 'Salário Bruto') +
+    geom_line(color='black', size=1.3) +  
+    geom_point(shape=21, fill='grey70', color="black", size=5) +
+    #aes(size=!!sym(coluna)), 
+    #scale_size(range= c(1,10)) +
+    theme_classic() + theme(legend.position="none") +
+    scale_fill_gradient2(low= "white",mid='#97D2FB',high='blue') +
+    scale_x_continuous(breaks=seq(from = min(df[['salario']]), 
+                                  to = max(df[['salario']]), 
+                                  by = 500)) + 
+    scale_y_continuous(breaks=seq(from = min(df[[coluna]]), 
+                                  to = max(df[[coluna]]), 
+                                  by = (max(df[[coluna]]) - min(df[[coluna]]))/10) %>% round(2), labels = number_format(accuracy = 1)) + # Arredondar para 0 dígitos decimais
+    geom_label(aes(label=labels), colour='black', size=2.75, nudge_y=pulo, fill='#CDCFE3')
   print(p)
-  ggsave(paste0('salario','_',coluna,".png"), height=10, width=20, units="cm", dpi= 600)
+  
+  ggsave(paste0(local_graficos,'/salario','_',coluna,".png"), height=10, width=20, units="cm", dpi= 600)
 }
 
 ```
 
-```{r}
-df
-```
 
 ```{r}
 print('-')
-colunas = c('salario_liquido_anual','total_descontos_anual')
+colunas = c('IRRF_anual','INSS_anual','total_descontos_anual','salario_liquido_anual')
+titulo_colunas = c('IRRF Anual','INSS Anual','Descontos Totais Anual','Salário Liquido Anual')
+count = 0
 
 for (coluna in colunas){
   #print(coluna)
+  count = count + 1
+  titulo_eixo_y = titulo_colunas[count]
   
   df$labels = NA
   for (linha in 1:nrow(df)){
-    sal0 = df$salario[linha]
-    sal = df$salario_anual[linha]
-    valor = df[[coluna]][linha] %>% round(2)
-    df$labels[linha] = paste(sal0,';',sal,';',valor)
+    sal_mensal = df$salario[linha]
+    #sal_anual = df$salario_anual[linha]
+    valor = df[[coluna]][linha] %>% round(0)
+    df$labels[linha] = paste0('(',sal_mensal,')\n',valor) 
+    #df$labels[linha] = valor 
+    #,sal_anual,'\n'
   }
   
   pulo = (max(df[[coluna]]) - min(df[[coluna]])) / 9
   
   p = ggplot(df, aes(x=salario_anual, y=!!sym(coluna), fill=!!sym(coluna) ) ) +
-  labs(y=coluna) +
-  geom_point(aes(size=!!sym(coluna)), shape=21, color='black') + 
-  geom_smooth(method = "lm", se = FALSE) +
-  scale_size(range= c(1,10)) +
-  theme_classic() + theme(legend.position="none") +
-  scale_fill_gradient2(low= "white",mid='#97D2FB',high='blue') +
-  scale_x_continuous(breaks=seq(from = min(df[['salario_anual']]), 
-                                to = max(df[['salario_anual']]), 
-                                by = (max(df[['salario_anual']]) - min(df[['salario_anual']]))/10) %>% round(2)) +
-  scale_y_continuous(breaks=seq(from = min(df[[coluna]]), 
-                                to = max(df[[coluna]]), 
-                                by = (max(df[[coluna]]) - min(df[[coluna]]))/10) %>% round(2)) +
-  #geom_point(data=lins, aes(x=salario_anual, y=!!sym(coluna)), size=10, shape=13) + 
-  geom_label(aes(label=labels, color=labels), size=3, nudge_y=pulo, fill='grey85')
+    labs(y=titulo_eixo_y, x = 'Salário Bruto Anual') +
+    geom_line(color='black') +  
+    geom_point(shape=21, fill='grey70', color="black", size=5) +
+    theme_classic() + theme(legend.position="none") +
+    scale_x_continuous(limits = c(2000*12, 10000*12), 
+                       breaks=seq(from = 2000*12, to = 10000*12, by = 500*12)) +
+    scale_y_continuous(breaks=seq(from = min(df[[coluna]]), 
+                                  to = max(df[[coluna]]), 
+                                  by = (max(df[[coluna]]) - min(df[[coluna]]))/10) %>% round(2),
+                       labels = number_format(accuracy = 1)) +
+    geom_label(aes(label=labels), colour='black', size=2.75, nudge_y=pulo, fill='#CDCFE3')
   
   print(p)
-  ggsave(paste0('salario_anual','_',coluna,".png"), height=10, width=20, units="cm", dpi= 600)
+  ggsave(paste0(local_graficos,'/salario_anual','_',coluna,".png"), height=10, width=21, units="cm", dpi= 600)
+  # if (count == 1){
+  #   p1 = p
+  # }else {
+  #   p2 = p
+  # }
 }
 
+# p1 / p2
+# ggsave(paste0(local_graficos,'/salario_anual_os_dois_graficos',".png"), height=20, width=20, units="cm", dpi= 600)
+
 ```
+
+# Previdencia Privada
+
+```{r}
+numero_de_anos <- seq(10, 25, 5) #
+investimentos <- c(2000, 5000, 7000, 9000) # Valor investido por ano
+taxas <- seq(2, 5, 1) #taxas <- c(2, 5, 8, 12) # Taxa de Rendimento
+
+resultados <- data.frame(Investimento = numeric(),
+                         Rentabilidade = numeric(),
+                         Anos = numeric(),
+                         Valor_Futuro = numeric())
+
+for (investimento in investimentos) {
+  for (rentabilidade in taxas) {
+    for (anos in numero_de_anos) {
+      rentabilidade_anual <- rentabilidade / 100
+      valor_futuro <- investimento * (1 + rentabilidade_anual) ^ anos
+      resultados <- rbind(resultados, data.frame(Investimento = investimento,
+                                                 Rentabilidade = rentabilidade,
+                                                 Anos = anos,
+                                                 Valor_Futuro = valor_futuro))
+    }
+  }
+}
+
+resultados$Valor_futuro2 <- resultados$Investimento * ((1 + (resultados$Rentabilidade/100) )^resultados$Anos - 1) / (resultados$Rentabilidade/100)
+resultados
+
+```
+
+
+```{r Valor final de um investimento unico}
+resultados$Valor_Futuro %>% summary()
+maximo = resultados$Valor_Futuro %>% max()
+pulo = maximo/10 %>% round(0)
+
+ggplot(resultados, aes(x = Anos, y = Valor_Futuro, color = factor(Investimento), shape = factor(Rentabilidade), group = interaction(Investimento, Rentabilidade))) +
+  geom_line() +
+  geom_point(size = 3) +
+  labs(title = "Valor Futuro de Diferentes Investimentos ao Longo do Tempo",
+       x = "Número de Anos",
+       y = "Valor Futuro (R$)",
+       color = "Investimento Inicial (R$)", #color = NULL, 
+       shape = "Taxa de Rentabilidade (%)", #shape = NULL
+       ) +
+  scale_y_continuous(limits = c(0, maximo), 
+                       breaks=seq(from = 0, to = maximo, by = pulo), 
+                     labels = label_number(accuracy = 1)) +
+  scale_x_continuous(breaks=numero_de_anos) +
+  theme_classic() + 
+  guides(color = guide_legend(order = 1),
+         shape = guide_legend(order = 2)) +
+  theme(legend.position = "bottom",
+        legend.box = "vertical")
+
+ggsave(paste0(local_graficos,'/Projecao',".png"), height=20, width=25, units="cm", dpi= 600)
+```
+
+```{r Valor final de um investimento Anual}
+resultados$Valor_futuro2 %>% summary()
+maximo = resultados$Valor_futuro2 %>% max()
+pulo = maximo/10 %>% round(0)
+
+ggplot(resultados, aes(x = Anos, y = Valor_futuro2, color = factor(Investimento), shape = factor(Rentabilidade), group = interaction(Investimento, Rentabilidade))) +
+  geom_line() +
+  geom_point(size = 3) +
+  labs(title = "Valor Futuro de Diferentes Investimentos ao Longo do Tempo",
+       x = "Número de Anos",
+       y = "Valor Futuro (R$)",
+       color = "Investimento Inicial (R$)", #color = NULL, 
+       shape = "Taxa de Rentabilidade (%)", #shape = NULL
+       ) +
+  scale_y_continuous(limits = c(0, maximo), 
+                       breaks=seq(from = 0, to = maximo, by = pulo), 
+                     labels = label_number(accuracy = 1)) +
+  scale_x_continuous(breaks=numero_de_anos) +
+  theme_classic() + 
+  guides(color = guide_legend(order = 1),
+         shape = guide_legend(order = 2)) +
+  theme(legend.position = "bottom",
+        legend.box = "vertical")
+
+ggsave(paste0(local_graficos,'/Projecao2',".png"), height=20, width=25, units="cm", dpi= 600)
+```
+
+```{r}
+
+resultados$Valor_investido_total = resultados$Investimento * resultados$Anos
+resultados
+
+```
+
+# Calculos de IRRF
+
+
+
+
+
+
+
+
+
 
